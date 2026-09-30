@@ -1,0 +1,2 @@
+# Only for scripts/sample_data.py (run once locally).
+pandas>=2.2

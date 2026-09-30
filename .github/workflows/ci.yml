@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      # Only used for `prisma generate` and the build; no DB is needed in Phase 1.
+      DATABASE_URL: postgresql://flagline:flagline@localhost:5432/flagline
+      DIRECT_URL: postgresql://flagline:flagline@localhost:5432/flagline
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run format:check
+      - run: npx prisma validate
+      - run: npm run build

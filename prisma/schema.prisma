@@ -1,0 +1,150 @@
+// Flagline data model. See PLAN.md, "Data model".
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL") // pooled connection, used by the app
+  directUrl = env("DIRECT_URL") // direct connection, used by migrations
+}
+
+enum Role {
+  ADMIN
+}
+
+enum UploadStatus {
+  PROCESSING
+  DONE
+  FAILED
+}
+
+enum Severity {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum ExplanationSource {
+  LLM
+  TEMPLATE
+}
+
+enum Outcome {
+  APPROVED
+  DISMISSED
+}
+
+enum ActorType {
+  ADMIN
+  GUEST
+}
+
+/// Admin only. Created on first GitHub login when the username is in ADMIN_GITHUB_USERNAMES.
+model User {
+  id          String   @id @default(cuid())
+  githubId    String   @unique
+  githubLogin String   @unique
+  role        Role     @default(ADMIN)
+  createdAt   DateTime @default(now())
+
+  uploads   Upload[]
+  decisions Decision[]
+}
+
+/// One per visitor; the id lives in an httpOnly cookie. Deleted after GUEST_SESSION_TTL_DAYS idle.
+model GuestSession {
+  id         String   @id @default(cuid())
+  createdAt  DateTime @default(now())
+  lastSeenAt DateTime @default(now())
+
+  decisions Decision[]
+
+  @@index([lastSeenAt])
+}
+
+model Upload {
+  id           String       @id @default(cuid())
+  fileName     String
+  uploadedById String
+  rowCount     Int          @default(0)
+  status       UploadStatus @default(PROCESSING)
+  createdAt    DateTime     @default(now())
+
+  uploadedBy   User          @relation(fields: [uploadedById], references: [id])
+  transactions Transaction[]
+}
+
+model Transaction {
+  id          String   @id @default(cuid())
+  uploadId    String
+  externalId  String
+  timestamp   DateTime
+  fromAccount String
+  toAccount   String
+  amount      Decimal  @db.Decimal(20, 2)
+  currency    String
+  amountUsd   Decimal  @db.Decimal(20, 2)
+  paymentType String
+
+  upload Upload @relation(fields: [uploadId], references: [id], onDelete: Cascade)
+  flags  Flag[]
+
+  @@unique([uploadId, externalId])
+  @@index([uploadId, fromAccount, timestamp])
+  @@index([uploadId, toAccount, timestamp])
+}
+
+/// Shared by all viewers. No status column: status is per viewer, derived from Decision.
+model Flag {
+  id                String             @id @default(cuid())
+  transactionId     String
+  ruleId            String
+  severity          Severity
+  details           Json
+  explanation       String?
+  explanationSource ExplanationSource?
+  createdAt         DateTime           @default(now())
+
+  transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  decisions   Decision[]
+
+  @@unique([transactionId, ruleId])
+  @@index([severity, ruleId])
+}
+
+/// One per flag per viewer (admin user or guest session).
+model Decision {
+  id             String   @id @default(cuid())
+  flagId         String
+  userId         String?
+  guestSessionId String?
+  outcome        Outcome
+  note           String?
+  createdAt      DateTime @default(now())
+
+  flag         Flag          @relation(fields: [flagId], references: [id], onDelete: Cascade)
+  user         User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  guestSession GuestSession? @relation(fields: [guestSessionId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, flagId])
+  @@unique([guestSessionId, flagId])
+  @@index([guestSessionId, flagId])
+  @@index([userId, flagId])
+}
+
+/// Insert-only. No update or delete path exists in application code.
+model AuditLog {
+  id         String    @id @default(cuid())
+  actorType  ActorType
+  actorId    String
+  action     String
+  entityType String
+  entityId   String
+  metadata   Json?
+  createdAt  DateTime  @default(now())
+
+  @@index([createdAt])
+  @@index([actorType, actorId, createdAt])
+}
