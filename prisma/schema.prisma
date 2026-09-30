@@ -83,7 +83,7 @@ model Transaction {
   timestamp   DateTime
   fromAccount String
   toAccount   String
-  amount      Decimal  @db.Decimal(20, 2)
+  amount      Decimal  @db.Decimal(24, 8) // payment currency; Bitcoin needs 6+ decimals
   currency    String
   amountUsd   Decimal  @db.Decimal(20, 2)
   paymentType String

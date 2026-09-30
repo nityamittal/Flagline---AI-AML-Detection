@@ -6,7 +6,7 @@ approves or dismisses it. Every decision goes into an audit log.
 
 > Portfolio project, not production compliance software. All data is synthetic.
 
-**Status:** Phase 1 (skeleton and data) of [PLAN.md](PLAN.md).
+**Status:** Phase 2 (auth and upload) of [PLAN.md](PLAN.md).
 
 ## Stack
 
@@ -22,12 +22,24 @@ cp .env.example .env
 docker compose up -d        # Postgres on localhost:5432
 npm install                 # also runs prisma generate
 npx prisma migrate dev      # create the tables
+npm run seed                # import data/demo.csv (skips if already imported; --force to redo)
 npm run dev                 # http://localhost:3000
 ```
 
 `GET /api/health` reports whether the app can reach the database.
 
-Checks: `npm run lint`, `npm run typecheck`, `npm run format:check`, `npm run build`.
+Checks: `npm run check` (lint, type check, Jest), plus `npm run format:check` and `npm run build`.
+
+### Admin sign-in (optional locally)
+
+Visitors never sign in: each browser gets a guest session cookie on its first visit. Only the
+admin signs in, with GitHub, to upload CSVs. To enable it locally, fill these in `.env`:
+
+- `AUTH_SECRET`: run `npx auth secret`, or use any random 32-byte base64 string.
+- `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET`: from a GitHub OAuth app (GitHub → Settings →
+  Developer settings → OAuth Apps) with callback URL
+  `http://localhost:3000/api/auth/callback/github`.
+- `ADMIN_GITHUB_USERNAMES`: your GitHub username. Anyone else who signs in stays a guest.
 
 ## Data
 

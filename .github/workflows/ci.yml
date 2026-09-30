@@ -16,7 +16,7 @@ jobs:
   check:
     runs-on: ubuntu-latest
     env:
-      # Only used for `prisma generate` and the build; no DB is needed in Phase 1.
+      # Only used for `prisma generate` and the build. The Jest tests mock the database.
       DATABASE_URL: postgresql://flagline:flagline@localhost:5432/flagline
       DIRECT_URL: postgresql://flagline:flagline@localhost:5432/flagline
     steps:
@@ -28,6 +28,7 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
+      - run: npm test
       - run: npm run format:check
       - run: npx prisma validate
       - run: npm run build
