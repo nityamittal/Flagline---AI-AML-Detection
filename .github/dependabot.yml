@@ -2,9 +2,27 @@ version: 2
 updates:
   - package-ecosystem: npm
     directory: /
+    target-branch: main
     schedule:
       interval: weekly
+    groups:
+      # prisma and @prisma/client must move together.
+      prisma:
+        patterns: ["prisma", "@prisma/client"]
+    ignore:
+      # Majors that need a deliberate migration, not an automated bump:
+      # Prisma 7 moves url/directUrl out of schema.prisma (Neon setup relies on it);
+      # ESLint 10 and TypeScript 7 are ahead of what eslint-config-next supports.
+      - dependency-name: "prisma"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@prisma/client"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: /
+    target-branch: main
     schedule:
       interval: weekly
