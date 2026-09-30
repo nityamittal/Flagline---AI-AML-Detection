@@ -17,7 +17,11 @@ function uploadRequest(csv: string) {
 }
 
 describeDb("upload endpoint", () => {
-  beforeEach(resetDb);
+  beforeEach(async () => {
+    await resetDb();
+    // Admin sign-in configured (lib/auth-config.ts); without it nobody is admin.
+    Object.assign(process.env, { AUTH_SECRET: "x", AUTH_GITHUB_ID: "x", AUTH_GITHUB_SECRET: "x" });
+  });
   afterAll(() => db.$disconnect());
 
   it("gives a guest 403 and writes nothing", async () => {

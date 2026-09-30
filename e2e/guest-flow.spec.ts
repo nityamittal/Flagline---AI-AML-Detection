@@ -18,6 +18,8 @@ test("a guest reviews a flag; a second browser is unaffected", async ({ browser 
   const bobOpen = await openCount(bob);
   expect(aliceOpen).toBeGreaterThan(0);
   await expect(alice.getByRole("heading", { name: "Review queue" })).toBeVisible();
+  // This server has admin sign-in configured, so the footer offers it.
+  await expect(alice.getByRole("button", { name: "Admin sign-in" })).toBeVisible();
 
   // Open the first flag in the queue.
   await alice.locator('table a[href^="/flags/"]').first().click();
