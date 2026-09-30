@@ -38,6 +38,8 @@ const ADMIN = { id: "u1", githubId: "42", githubLogin: "the-admin", role: "ADMIN
 beforeEach(() => {
   jest.clearAllMocks();
   process.env.ADMIN_GITHUB_USERNAMES = "the-admin";
+  // Sign-in configured (lib/auth-config.ts); tests/auth/auth-disabled.test.ts covers the opposite.
+  Object.assign(process.env, { AUTH_SECRET: "x", AUTH_GITHUB_ID: "x", AUTH_GITHUB_SECRET: "x" });
 });
 
 describe("upload endpoints as a guest", () => {

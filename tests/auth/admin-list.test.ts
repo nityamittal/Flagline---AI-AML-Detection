@@ -1,4 +1,4 @@
-import { adminLogins, isAdminLogin } from "@/lib/admin-list";
+import { adminLogins, githubIdOf, isAdminLogin } from "@/lib/admin-list";
 
 describe("admin allow list", () => {
   afterEach(() => {
@@ -21,5 +21,26 @@ describe("admin allow list", () => {
     process.env.ADMIN_GITHUB_USERNAMES = "";
     expect(isAdminLogin("")).toBe(false);
     expect(isAdminLogin(undefined)).toBe(false);
+  });
+});
+
+describe("githubIdOf", () => {
+  it("returns GitHub's numeric account id as a string", () => {
+    expect(githubIdOf({ id: 1234567 })).toBe("1234567");
+  });
+
+  it.each([
+    ["the seed user's id", "seed:flagline"],
+    ["a numeric string", "1234567"],
+    ["zero", 0],
+    ["a negative number", -5],
+    ["a fraction", 1.5],
+    ["a missing id", undefined],
+  ])("rejects %s, so no real account can map to it", (_, id) => {
+    expect(githubIdOf({ id })).toBeNull();
+  });
+
+  it("rejects a missing profile", () => {
+    expect(githubIdOf(undefined)).toBeNull();
   });
 });

@@ -1,6 +1,6 @@
 import NextAuth, { type DefaultSession } from "next-auth";
 import GitHub, { type GitHubProfile } from "next-auth/providers/github";
-import { isAdminLogin } from "@/lib/admin-list";
+import { githubIdOf, isAdminLogin } from "@/lib/admin-list";
 import { db } from "@/lib/db";
 
 declare module "next-auth" {
@@ -27,17 +27,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     // Only allow-listed GitHub users get an admin session. Everyone else is sent back
     // to the queue as a guest with a note, instead of Auth.js's error page.
     signIn({ account, profile }) {
-      if (account?.provider !== "github") return false;
+      if (account?.provider !== "github" || !githubIdOf(profile)) return false;
       const login = (profile as GitHubProfile | undefined)?.login;
       return isAdminLogin(login) ? true : "/?notice=not-admin";
     },
-    // `account` and `profile` are only present on the sign-in request itself.
+    // `account` and `profile` are only present on the sign-in request itself. The user row is
+    // matched on the GitHub account id; the login is refreshed on each sign-in.
     async jwt({ token, account, profile }) {
-      if (account?.provider === "github" && profile) {
-        const { id, login } = profile as unknown as GitHubProfile;
+      const githubId = githubIdOf(profile);
+      if (account?.provider === "github" && githubId) {
+        const { login } = profile as unknown as GitHubProfile;
         const user = await db.user.upsert({
-          where: { githubId: String(id) },
-          create: { githubId: String(id), githubLogin: login, role: "ADMIN" },
+          where: { githubId },
+          create: { githubId, githubLogin: login, role: "ADMIN" },
           update: { githubLogin: login },
         });
         await db.auditLog.create({

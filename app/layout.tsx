@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { adminSignIn, adminSignOut } from "@/app/auth-actions";
+import { authEnabled } from "@/lib/auth-config";
 import { getAdmin } from "@/lib/authz";
 import "./globals.css";
 
@@ -46,13 +47,13 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
                 Sign out
               </button>
             </form>
-          ) : (
+          ) : authEnabled() ? (
             <form action={adminSignIn}>
               <button type="submit" className="underline underline-offset-4">
                 Admin sign-in
               </button>
             </form>
-          )}
+          ) : null}
         </footer>
       </body>
     </html>

@@ -8,9 +8,9 @@ import { validateCsv } from "@/lib/uploads/validate";
 
 const FILE = path.join(process.cwd(), "data", "demo.csv");
 
-// Uploads need an owner. This placeholder admin cannot sign in: it has no GitHub account and
-// its login is not on the allow list that lib/authz.ts checks on every request.
-const SEED_USER = { githubId: "seed", githubLogin: "flagline-seed" };
+// Uploads need an owner. This placeholder admin can never sign in: sign-in matches users on
+// GitHub's numeric account id (lib/admin-list.ts githubIdOf), and "seed:flagline" isn't one.
+const SEED_USER = { githubId: "seed:flagline", githubLogin: "flagline-seed" };
 
 async function main() {
   const force = process.argv.includes("--force");

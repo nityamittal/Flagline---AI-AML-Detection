@@ -18,8 +18,7 @@ const COLUMNS = [
   "currency",
   "payment_type",
 ] as const;
-const SAMPLE_URL =
-  "https://github.com/nityamittal/Flagline---AI-AML-Detection/blob/main/data/demo.csv";
+const SAMPLE_URL = "/sample.csv";
 
 type RowError = { row: number | null; message: string };
 type Preview = {
@@ -220,7 +219,7 @@ export function UploadForm() {
       )}
       <p className="text-muted-foreground text-xs">
         Need test data?{" "}
-        <a href={SAMPLE_URL} className="underline underline-offset-4">
+        <a href={SAMPLE_URL} download className="underline underline-offset-4">
           Download the sample file
         </a>{" "}
         (data/demo.csv, about 20,000 synthetic transactions).

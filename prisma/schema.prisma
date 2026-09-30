@@ -44,13 +44,17 @@ enum ActorType {
 /// Admin only. Created on first GitHub login when the username is in ADMIN_GITHUB_USERNAMES.
 model User {
   id          String   @id @default(cuid())
+  /// GitHub's numeric account id. Sign-in matches on this, never on the login.
   githubId    String   @unique
-  githubLogin String   @unique
+  /// Display name and allow-list key; not unique, since GitHub usernames can change hands.
+  githubLogin String
   role        Role     @default(ADMIN)
   createdAt   DateTime @default(now())
 
   uploads   Upload[]
   decisions Decision[]
+
+  @@index([githubLogin])
 }
 
 /// One per visitor; the id lives in an httpOnly cookie. Deleted after GUEST_SESSION_TTL_DAYS idle.
