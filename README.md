@@ -30,6 +30,17 @@ npm run dev                 # http://localhost:3000
 
 Checks: `npm run check` (lint, type check, Jest), plus `npm run format:check` and `npm run build`.
 
+Integration tests need a throwaway database whose name ends in `_test`:
+
+```bash
+docker compose exec db psql -U flagline -c "CREATE DATABASE flagline_test"
+DATABASE_URL=postgresql://flagline:flagline@localhost:5432/flagline_test DIRECT_URL=postgresql://flagline:flagline@localhost:5432/flagline_test npx prisma migrate deploy
+TEST_DATABASE_URL=postgresql://flagline:flagline@localhost:5432/flagline_test npm test
+```
+
+End to end: `npm run build`, then `npm run e2e` (Playwright; needs the seeded database and
+`npx playwright install chromium` once).
+
 `npm run score` prints precision and recall per rule and per typology (see below).
 
 ### Admin sign-in (optional)
@@ -127,6 +138,27 @@ visitor's decisions never change another's. A real bank would keep one shared st
 per-visitor decisions keep the public demo usable by everyone at once. Dismissing requires a
 note. Every decision goes into an append-only audit log, where visitors see only their own
 entries.
+
+## Security
+
+Each protection, where it lives, and what tests it.
+
+| Risk                                          | Protection                                                                                                                                                          | Code                                                                                                                | Test                                                                                                                   |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| A guest runs admin actions                    | Every admin page and endpoint calls `getAdmin()` on the server, which re-checks the role and the allow list; guests get HTTP 403                                    | [lib/authz.ts](lib/authz.ts), [app/api/uploads](app/api/uploads), [app/uploads/page.tsx](app/uploads/page.tsx)      | [uploads-auth](tests/api/uploads-auth.test.ts), [uploads-and-cleanup](tests/integration/uploads-and-cleanup.test.ts)   |
+| One guest sees or changes another's decisions | Every decision query filters by the session id from the httpOnly cookie, never from request input                                                                   | [lib/viewer.ts](lib/viewer.ts), [lib/review.ts](lib/review.ts), [app/flags/actions.ts](app/flags/actions.ts)        | [decisions](tests/integration/decisions.test.ts) (incl. a smuggled `guestSessionId`), [e2e](e2e/guest-flow.spec.ts)    |
+| Bots creating sessions or spamming decisions  | Postgres-backed rate limits per IP (30 new sessions / 10 min, 60 decisions / min); guest data deleted after 7 idle days by a cron route that requires `CRON_SECRET` | [lib/rate-limit.ts](lib/rate-limit.ts), [proxy.ts](proxy.ts), [app/api/cron/cleanup](app/api/cron/cleanup/route.ts) | [uploads-and-cleanup](tests/integration/uploads-and-cleanup.test.ts), [decisions](tests/integration/decisions.test.ts) |
+| The wrong person gets admin                   | GitHub login grants admin only to `ADMIN_GITHUB_USERNAMES`; removal takes effect on the next request                                                                | [lib/auth.ts](lib/auth.ts), [lib/admin-list.ts](lib/admin-list.ts)                                                  | [admin-list](tests/auth/admin-list.test.ts), [uploads-auth](tests/api/uploads-auth.test.ts)                            |
+| Bad or malicious CSV                          | 5 MB limit (checked before buffering), 50,000-row limit, a Zod schema per row, and the whole file rejected on any error                                             | [lib/uploads](lib/uploads)                                                                                          | [validate](tests/uploads/validate.test.ts), [uploads-and-cleanup](tests/integration/uploads-and-cleanup.test.ts)       |
+| CSV formula injection on export               | Not applicable: there is no export yet (stretch goal). Amounts must match a strict number format, so `=1+1` is rejected on import                                   | [lib/uploads/validate.ts](lib/uploads/validate.ts)                                                                  | [uploads-and-cleanup](tests/integration/uploads-and-cleanup.test.ts)                                                   |
+| Leaking account numbers                       | Masked (`****F54E0`) in the UI and in everything sent to the LLM                                                                                                    | [lib/format.ts](lib/format.ts), [lib/llm/input.ts](lib/llm/input.ts)                                                | [explain](tests/llm/explain.test.ts)                                                                                   |
+| Prompt injection via CSV text                 | Only structured, masked fields reach the LLM; its output is plain text shown on the page and never triggers actions                                                 | [lib/llm](lib/llm)                                                                                                  | [explain](tests/llm/explain.test.ts)                                                                                   |
+| Tampering with history                        | The audit log has no update or delete path in code (a Postgres role without UPDATE/DELETE is a stretch goal)                                                        | every `auditLog.create` call                                                                                        | [audit-insert-only](tests/security/audit-insert-only.test.ts)                                                          |
+| Secrets in the repo                           | `.env*` is git-ignored; secrets live in GitHub and Vercel; `.env.example` has names only                                                                            | [.gitignore](.gitignore), [.env.example](.env.example)                                                              | CI runs with throwaway values                                                                                          |
+| Vulnerable dependencies                       | Dependabot, plus `npm audit --omit=dev --audit-level=high` in CI                                                                                                    | [.github](.github)                                                                                                  | CI                                                                                                                     |
+
+**Tradeoff:** an open demo lets anyone create guest data. Rate limits, the 7-day cleanup and
+per-session scoping keep that cheap and contained, and nothing a guest does changes shared data.
 
 ## Data
 

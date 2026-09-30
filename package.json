@@ -17,7 +17,8 @@
     "db:deploy": "prisma migrate deploy",
     "seed": "tsx scripts/seed.ts",
     "score": "tsx scripts/score.ts",
-    "explain:all": "tsx scripts/explain-all.ts"
+    "explain:all": "tsx scripts/explain-all.ts",
+    "e2e": "playwright test"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
@@ -34,6 +35,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4",
     "@types/jest": "^30.0.0",
     "@types/node": "^20",
