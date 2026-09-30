@@ -28,3 +28,13 @@ A running log of what I asked AI tools for and what I had to fix. See PLAN.md, "
   - Sign-in already upserted on `githubId`, but `githubLogin` was unique, so a renamed account whose old name someone else took would have failed to sign in. The login is no longer unique, and only a positive integer id is accepted from GitHub, so `seed:flagline` can't be claimed.
   - `/sample.csv` reads `data/demo.csv` at runtime; `outputFileTracingIncludes` ships the file with the route on Vercel.
   - The migration was written by hand (`prisma migrate diff`) rather than with `migrate dev`, because the local database already had later phases' migrations and `migrate dev` would have offered to reset it.
+
+## Phase 3 · rules and review
+
+- **Asked:** five rules as pure functions with Jest tests, flags generated on import, a per-viewer review queue with filters, a flag detail page with approve/dismiss, viewer-scoped decisions and audit entries, and `npm run score`.
+- **Notes:**
+  - The first fan-out rule flagged 3,295 transactions at 3% precision. Looking at the noisiest senders showed hub accounts paying the same payees repeatedly, so fan-out now also requires 80% distinct payees in the window (precision 51%). The same change broke fan-in recall (92% to 10%), so it is fan-out only. Both runs are in the README.
+  - One new test (a "hub" account) failed at first because the test data put five distinct payees first, which is a genuine burst. The test data was wrong, not the rule.
+  - The two-browser check at first seemed to show decisions not saving. The test client (Python's cookie jar) refused to send the `Secure` guest cookie over `http://localhost`, so every request was a new guest. Browsers treat localhost as secure, so the app was fine.
+  - `next start` locally needs `AUTH_TRUST_HOST=true`, or Auth.js rejects the host.
+  - Count chips use raw SQL (`lib/review.ts`); Prisma stores timestamps as UTC without a time zone, so "today" compares against `date_trunc('day', now() AT TIME ZONE 'UTC')`.

@@ -33,7 +33,7 @@ type State =
   | { step: "checking"; fileName: string }
   | { step: "preview"; file: File; result: Preview }
   | { step: "importing"; file: File; result: Preview }
-  | { step: "done"; fileName: string; rowCount: number }
+  | { step: "done"; fileName: string; rowCount: number; flagged: number; high: number }
   | { step: "error"; message: string };
 
 async function post(url: string, file: File) {
@@ -73,7 +73,13 @@ export function UploadForm() {
       setState({ step: "error", message: json.error ?? "The import failed." });
       return;
     }
-    setState({ step: "done", fileName: state.file.name, rowCount: json.rowCount });
+    setState({
+      step: "done",
+      fileName: state.file.name,
+      rowCount: json.rowCount,
+      flagged: json.flagged,
+      high: json.high,
+    });
     router.refresh();
   }
 
@@ -86,10 +92,12 @@ export function UploadForm() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>{state.rowCount.toLocaleString("en-US")} transactions imported</CardTitle>
-          <CardDescription>
-            From {state.fileName}. Flags are generated once the rules land in Phase 3.
-          </CardDescription>
+          <CardTitle>
+            {state.rowCount.toLocaleString("en-US")} transactions imported,{" "}
+            {state.flagged.toLocaleString("en-US")} flagged ({state.high.toLocaleString("en-US")}{" "}
+            high)
+          </CardTitle>
+          <CardDescription>From {state.fileName}.</CardDescription>
         </CardHeader>
         <CardContent className="flex gap-2">
           <Button asChild>

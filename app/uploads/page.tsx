@@ -13,6 +13,16 @@ export default async function UploadsPage() {
   if (!(await getAdmin())) forbidden();
 
   const uploads = await db.upload.findMany({ orderBy: { createdAt: "desc" }, take: 20 });
+  // Flagged transactions per upload (a transaction with two flags counts once).
+  const flagged = new Map(
+    (
+      await db.transaction.groupBy({
+        by: ["uploadId"],
+        where: { uploadId: { in: uploads.map((u) => u.id) }, flags: { some: {} } },
+        _count: { _all: true },
+      })
+    ).map((g) => [g.uploadId, g._count._all]),
+  );
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-col gap-8 px-4 py-10">
@@ -38,6 +48,7 @@ export default async function UploadsPage() {
                   <th className="px-3 py-2 font-medium">File</th>
                   <th className="px-3 py-2 font-medium">Date</th>
                   <th className="px-3 py-2 text-right font-medium">Rows</th>
+                  <th className="px-3 py-2 text-right font-medium">Flagged</th>
                   <th className="px-3 py-2 font-medium">Status</th>
                 </tr>
               </thead>
@@ -50,6 +61,9 @@ export default async function UploadsPage() {
                     </td>
                     <td className="px-3 py-2 text-right tabular-nums">
                       {upload.rowCount.toLocaleString("en-US")}
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      {(flagged.get(upload.id) ?? 0).toLocaleString("en-US")}
                     </td>
                     <td className="px-3 py-2">
                       <Badge variant={STATUS_VARIANT[upload.status]}>{upload.status}</Badge>
