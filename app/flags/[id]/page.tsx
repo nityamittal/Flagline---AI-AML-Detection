@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
+import { DecisionToast } from "@/components/decision-toast";
 import { SeverityBadge } from "@/components/severity-badge";
 import { formatAmount, formatTime, formatUsd, maskAccount } from "@/lib/format";
 import { getFlag, nextOpenFlagId } from "@/lib/review";
@@ -9,6 +10,7 @@ import { RULES_BY_ID } from "@/lib/rules";
 import { getViewer } from "@/lib/viewer";
 import { DecisionPanel } from "./decision-panel";
 import { Explanation, ExplanationSkeleton } from "./explanation";
+import { Shortcuts } from "./shortcuts";
 
 export const metadata: Metadata = { title: "Flag · Flagline" };
 
@@ -53,10 +55,12 @@ export default async function FlagPage({ params, searchParams }: PageProps<"/fla
 
   return (
     <main className="mx-auto grid w-full max-w-5xl gap-6 px-4 py-8 lg:grid-cols-[1fr_20rem]">
-      {query.decided && (
-        <p role="status" className="bg-muted rounded-md px-4 py-2 text-sm lg:col-span-2">
-          {query.decided === "approved" ? "Approved" : "Dismissed"}. Here is the next open flag.
-        </p>
+      {typeof query.decided === "string" && (
+        <DecisionToast
+          key={String(query.undo)}
+          decided={query.decided}
+          undoFlagId={typeof query.undo === "string" ? query.undo : undefined}
+        />
       )}
 
       <div className="flex flex-col gap-6">
@@ -157,6 +161,7 @@ export default async function FlagPage({ params, searchParams }: PageProps<"/fla
             Skip to next open flag →
           </Link>
         )}
+        <Shortcuts nextHref={next ? `/flags/${next}` : null} />
         {history.length > 0 && (
           <section className="text-sm">
             <h2 className="mb-2 font-semibold">Your history on this flag</h2>

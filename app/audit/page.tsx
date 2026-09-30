@@ -19,6 +19,8 @@ function describe(entry: AuditLog): { text: string; href?: string } {
       return { text: `Approved ${rule} flag`, href: `/flags/${entry.entityId}` };
     case "flag.dismiss":
       return { text: `Dismissed ${rule} flag`, href: `/flags/${entry.entityId}` };
+    case "flag.undo":
+      return { text: "Undid their decision on a flag", href: `/flags/${entry.entityId}` };
     case "decisions.reset":
       return { text: `Reset their decisions (${meta.cleared ?? 0} cleared)` };
     case "admin.sign_in":

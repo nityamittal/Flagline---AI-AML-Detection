@@ -74,7 +74,28 @@ export async function decideFlag(_: DecisionState, formData: FormData): Promise<
 
   revalidatePath("/");
   const next = await nextOpenFlagId(viewer, flagId);
-  redirect(next ? `/flags/${next}?decided=${outcome.toLowerCase()}` : "/?done=1");
+  const toast = `decided=${outcome.toLowerCase()}&undo=${flagId}`;
+  redirect(next ? `/flags/${next}?${toast}` : `/?${toast}`);
+}
+
+/** Takes back this viewer's decision on a flag (the toast's Undo) and reopens that flag. */
+export async function undoDecision(formData: FormData) {
+  const viewer = await getViewer();
+  const flagId = z.string().min(1).max(40).safeParse(formData.get("flagId"));
+  if (!viewer || !flagId.success || (await tooManyDecisions())) redirect("/");
+
+  await db.$transaction(async (tx) => {
+    const { count } = await tx.decision.deleteMany({
+      where: { ...decisionOwner(viewer), flagId: flagId.data },
+    });
+    if (count > 0) {
+      await tx.auditLog.create({
+        data: { ...actor(viewer), action: "flag.undo", entityType: "Flag", entityId: flagId.data },
+      });
+    }
+  });
+  revalidatePath("/");
+  redirect(`/flags/${flagId.data}`);
 }
 
 /** Clears every decision this viewer has made, so the whole queue is open again. */

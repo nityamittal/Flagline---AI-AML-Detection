@@ -35,7 +35,7 @@ test("a guest reviews a flag; a second browser is unaffected", async ({ browser 
 
   await alice.getByLabel("Note (required to dismiss)").fill("Known payroll account (e2e)");
   await alice.getByRole("button", { name: "Dismiss" }).click();
-  await expect(alice.getByRole("status")).toContainText("Dismissed. Here is the next open flag.");
+  await expect(alice.getByRole("status")).toContainText("Dismissed. Next flag.");
   expect(new URL(alice.url()).pathname).not.toBe(flagUrl);
 
   // The decision is in Alice's audit log, as her own action.
@@ -52,4 +52,20 @@ test("a guest reviews a flag; a second browser is unaffected", async ({ browser 
   await expect(bob.getByText(/You dismissed this flag/)).toHaveCount(0);
   await bob.goto("/audit");
   await expect(bob.getByText("Known payroll account (e2e)")).toHaveCount(0);
+});
+
+test("keyboard shortcut A approves, and Undo reopens the flag", async ({ page }) => {
+  await page.goto("/");
+  await page.locator('table a[href^="/flags/"]').first().click();
+  const flagUrl = new URL(page.url()).pathname;
+  await expect(page.getByText("Shortcuts:")).toBeVisible();
+
+  await page.keyboard.press("a");
+  const toast = page.getByRole("status").filter({ hasText: "Approved. Next flag." });
+  await expect(toast).toBeVisible();
+  expect(new URL(page.url()).pathname).not.toBe(flagUrl);
+
+  await toast.getByRole("button", { name: "Undo" }).click();
+  await expect(page).toHaveURL(new RegExp(`${flagUrl}$`));
+  await expect(page.getByText(/You approved this flag/)).toHaveCount(0);
 });
