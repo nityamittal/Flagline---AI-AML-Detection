@@ -101,6 +101,25 @@ fan-out rule catches only 22% of FAN-OUT rows because most of those rows are dow
 where each sender makes one or two payments. Large amount and duplicate add little on this
 data. Amounts are converted with fixed, approximate FX rates.
 
+## LLM explanations
+
+Rules decide what gets flagged; an LLM only writes a one- or two-sentence reason for a flag
+that already exists, so a wrong answer costs a bad sentence, not a missed flag.
+
+- **Input:** the rule, its evidence and the transaction's structured fields, with every account
+  number masked (`****F54E0`). No free text from the upload ever reaches the model, and its
+  output is display-only.
+- **Model:** any OpenAI-compatible endpoint serving an open-weight model: Ollama locally
+  (`LLM_PROVIDER=ollama`, `LLM_MODEL=qwen2.5:3b`, no key), or a free hosted endpoint such as
+  Groq or OpenRouter (`LLM_PROVIDER=openai-compatible`, `LLM_BASE_URL`, `LLM_MODEL`,
+  `LLM_API_KEY`). `LLM_PROVIDER=none` uses templates only.
+- **Fallback:** if the call fails or takes over 8 seconds, a fixed template per rule is used.
+  The flag page tags every explanation "AI-generated" or "Template".
+- **Caching:** each flag's explanation is generated on first open and stored on the flag, so
+  it costs one call in total however many visitors open it. `npm run explain:all`
+  pre-generates every explanation (`-- --retry-templates` upgrades template text once an LLM is
+  available; `-- --delay 500` paces calls for rate-limited free tiers).
+
 ## Reviewing
 
 Every visitor gets their own queue: a flag is open until _they_ approve or dismiss it, and one
