@@ -152,3 +152,14 @@ model AuditLog {
   @@index([createdAt])
   @@index([actorType, actorId, createdAt])
 }
+
+/// Fixed-window rate-limit counters, shared by every server instance. Old windows are removed by
+/// the daily cleanup job.
+model RateLimit {
+  key         String
+  windowStart DateTime
+  count       Int      @default(0)
+
+  @@id([key, windowStart])
+  @@index([windowStart])
+}

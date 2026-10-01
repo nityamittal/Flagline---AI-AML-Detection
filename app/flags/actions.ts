@@ -1,9 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/lib/db";
+import { clientIp, LIMITS, rateLimit } from "@/lib/rate-limit";
 import { nextOpenFlagId } from "@/lib/review";
 import { actor, decisionOwner, getViewer } from "@/lib/viewer";
 
@@ -19,10 +21,18 @@ const decisionSchema = z
     message: "Add a short note saying why you're dismissing this flag.",
   });
 
+async function tooManyDecisions() {
+  const { ok } = await rateLimit(`decision:${clientIp(await headers())}`, LIMITS.decision);
+  return !ok;
+}
+
 /** Records this viewer's decision on a flag (replacing an earlier one), then opens the next flag. */
 export async function decideFlag(_: DecisionState, formData: FormData): Promise<DecisionState> {
   const viewer = await getViewer();
   if (!viewer) return { error: "Your session has expired. Reload the page and try again." };
+  if (await tooManyDecisions()) {
+    return { error: "You're deciding faster than a person can read. Wait a minute and try again." };
+  }
 
   const parsed = decisionSchema.safeParse({
     flagId: formData.get("flagId"),
@@ -70,7 +80,7 @@ export async function decideFlag(_: DecisionState, formData: FormData): Promise<
 /** Clears every decision this viewer has made, so the whole queue is open again. */
 export async function resetDecisions() {
   const viewer = await getViewer();
-  if (!viewer) redirect("/");
+  if (!viewer || (await tooManyDecisions())) redirect("/");
 
   await db.$transaction(async (tx) => {
     const { count } = await tx.decision.deleteMany({ where: decisionOwner(viewer) });

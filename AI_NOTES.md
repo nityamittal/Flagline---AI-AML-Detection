@@ -47,3 +47,13 @@ A running log of what I asked AI tools for and what I had to fix. See PLAN.md, "
   - The first masking check found no account values at all, which proved nothing: the prompt is JSON inside JSON, so the regex missed the escaped quotes. The check now parses the request bodies.
   - `next build` type-checks the tests too; a `{...} as NodeJS.ProcessEnv` cast failed there because Next's types make `NODE_ENV` required, so `llmConfig` now takes a plain string map.
   - A template replaces the LLM text only when the LLM fails; cached text is written with a conditional update so two first opens of the same flag can't overwrite each other.
+
+## Phase 5 · security and tests
+
+- **Asked:** rate limits on guest sessions and decisions, integration tests (a guest gets 403; guest A cannot read guest B's decisions), one Playwright test of the guest flow, and everything in CI.
+- **Notes:**
+  - Rate limits are counted in Postgres, not memory, because each Vercel instance has its own memory.
+  - Integration tests use a separate database and refuse to run unless its name ends in `_test`, since they truncate every table. Creating the test database, `prisma migrate deploy` still went to the dev database because migrations use `DIRECT_URL`, which `.env` pointed there; nothing was pending, so nothing changed. Both variables are now set for the test database.
+  - To check that the isolation tests really guard something, I made `decisionOwner` match every decision and re-ran them: two failed. The change was reverted.
+  - Playwright's `getByRole("alert")` also matched Next.js's hidden route announcer; the test now matches on the alert's text.
+  - The CI steps were replayed locally on fresh, empty databases (create, migrate, Jest with integration tests, build, seed, Playwright) and passed; the GitHub run itself is still to confirm.

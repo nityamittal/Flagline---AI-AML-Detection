@@ -15,10 +15,28 @@ concurrency:
 jobs:
   check:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: flagline
+          POSTGRES_PASSWORD: flagline
+          POSTGRES_DB: flagline
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U flagline -d flagline"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     env:
-      # Only used for `prisma generate` and the build. The Jest tests mock the database.
+      # The app and the Playwright run use `flagline`; the Jest integration tests truncate
+      # `flagline_test`. Neither holds anything but CI data.
       DATABASE_URL: postgresql://flagline:flagline@localhost:5432/flagline
       DIRECT_URL: postgresql://flagline:flagline@localhost:5432/flagline
+      TEST_DATABASE_URL: postgresql://flagline:flagline@localhost:5432/flagline_test
+      # Not a real secret: CI never signs anyone in.
+      AUTH_SECRET: ci-only-not-a-secret-7f3c9a1e5b2d4c6f8a0b1c2d3e4f5a6b
+      LLM_PROVIDER: none
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -28,7 +46,30 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
-      - run: npm test
       - run: npm run format:check
       - run: npx prisma validate
+      - run: npm audit --omit=dev --audit-level=high
+
+      - name: Migrate the app and test databases
+        run: |
+          echo 'CREATE DATABASE flagline_test;' | npx prisma db execute --stdin --url "$DATABASE_URL"
+          npx prisma migrate deploy
+          DATABASE_URL="$TEST_DATABASE_URL" DIRECT_URL="$TEST_DATABASE_URL" npx prisma migrate deploy
+
+      - name: Jest (unit + integration)
+        run: npm test
+
       - run: npm run build
+
+      - name: Playwright (seeded demo data)
+        run: |
+          npm run seed
+          npx playwright install --with-deps chromium
+          npm run e2e
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
