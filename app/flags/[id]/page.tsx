@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { Suspense } from "react";
 import { SeverityBadge } from "@/components/severity-badge";
 import { formatAmount, formatTime, formatUsd, maskAccount } from "@/lib/format";
 import { getFlag, nextOpenFlagId } from "@/lib/review";
 import { RULES_BY_ID } from "@/lib/rules";
 import { getViewer } from "@/lib/viewer";
 import { DecisionPanel } from "./decision-panel";
+import { Explanation, ExplanationSkeleton } from "./explanation";
 
 export const metadata: Metadata = { title: "Flag · Flagline" };
 
@@ -68,6 +70,10 @@ export default async function FlagPage({ params, searchParams }: PageProps<"/fla
           </div>
           <p className="text-muted-foreground text-sm">{rule?.description}</p>
         </div>
+
+        <Suspense fallback={<ExplanationSkeleton />}>
+          <Explanation flagId={flag.id} />
+        </Suspense>
 
         {evidence.length > 0 && (
           <section className="rounded-md border p-4">

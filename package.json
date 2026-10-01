@@ -16,7 +16,8 @@
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "seed": "tsx scripts/seed.ts",
-    "score": "tsx scripts/score.ts"
+    "score": "tsx scripts/score.ts",
+    "explain:all": "tsx scripts/explain-all.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",

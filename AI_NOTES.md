@@ -38,3 +38,12 @@ A running log of what I asked AI tools for and what I had to fix. See PLAN.md, "
   - The two-browser check at first seemed to show decisions not saving. The test client (Python's cookie jar) refused to send the `Secure` guest cookie over `http://localhost`, so every request was a new guest. Browsers treat localhost as secure, so the app was fine.
   - `next start` locally needs `AUTH_TRUST_HOST=true`, or Auth.js rejects the host.
   - Count chips use raw SQL (`lib/review.ts`); Prisma stores timestamps as UTC without a time zone, so "today" compares against `date_trunc('day', now() AT TIME ZONE 'UTC')`.
+
+## Phase 4 · LLM explanations
+
+- **Asked:** an OpenAI-compatible client with masking, an 8 s timeout and a template fallback (tested with a mock), Ollama or a hosted endpoint or `none` via env vars, lazy generation cached on the flag, `npm run explain:all`, and an "AI-generated / Template" tag.
+- **Notes:**
+  - Ollama was not installed on the build machine, so the LLM path was checked end to end against a small OpenAI-compatible mock server: pages showed "AI-generated", re-opening a flag made no second call, and a search of every request for all full account numbers in `demo.csv` found none. Against a mock that took 12 s, the page's first byte arrived in 0.1 s and the explanation fell back to the template at 8.1 s. A real Ollama run is still to do.
+  - The first masking check found no account values at all, which proved nothing: the prompt is JSON inside JSON, so the regex missed the escaped quotes. The check now parses the request bodies.
+  - `next build` type-checks the tests too; a `{...} as NodeJS.ProcessEnv` cast failed there because Next's types make `NODE_ENV` required, so `llmConfig` now takes a plain string map.
+  - A template replaces the LLM text only when the LLM fails; cached text is written with a conditional update so two first opens of the same flag can't overwrite each other.
