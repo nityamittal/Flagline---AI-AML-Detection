@@ -1,11 +1,20 @@
 import Link from "next/link";
+import { DecisionToast } from "@/components/decision-toast";
+import { IntroCard } from "@/components/intro-card";
 import { SeverityBadge } from "@/components/severity-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { resetDecisions } from "@/app/flags/actions";
 import { db } from "@/lib/db";
 import { formatTime, formatUsd, maskAccount } from "@/lib/format";
-import { listFlags, PAGE_SIZE, parseFilters, queueCounts, type QueueFilters } from "@/lib/review";
+import {
+  listFlags,
+  nextOpenFlagId,
+  PAGE_SIZE,
+  parseFilters,
+  queueCounts,
+  type QueueFilters,
+} from "@/lib/review";
 import { RULES, RULES_BY_ID } from "@/lib/rules";
 import { getViewer } from "@/lib/viewer";
 
@@ -22,7 +31,7 @@ export default async function ReviewQueue({ searchParams }: PageProps<"/">) {
     );
   }
 
-  const [{ flags, total }, counts, uploads] = await Promise.all([
+  const [{ flags, total }, counts, uploads, firstOpen] = await Promise.all([
     listFlags(viewer, filters),
     queueCounts(viewer),
     db.upload.findMany({
@@ -30,6 +39,7 @@ export default async function ReviewQueue({ searchParams }: PageProps<"/">) {
       orderBy: { createdAt: "desc" },
       select: { id: true, fileName: true, createdAt: true },
     }),
+    nextOpenFlagId(viewer),
   ]);
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const href = (overrides: Partial<QueueFilters>) => {
@@ -54,6 +64,16 @@ export default async function ReviewQueue({ searchParams }: PageProps<"/">) {
           That GitHub account isn&apos;t on the admin list, so you&apos;re still browsing as a
           guest. Guests can review every flag; only the admin uploads data.
         </p>
+      )}
+      {typeof params.decided === "string" && (
+        <DecisionToast
+          key={String(params.undo)}
+          decided={params.decided}
+          undoFlagId={typeof params.undo === "string" ? params.undo : undefined}
+        />
+      )}
+      {counts.total > 0 && (
+        <IntroCard firstHref={counts.high > 0 && firstOpen ? `/flags/${firstOpen}` : null} />
       )}
 
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -134,7 +154,37 @@ export default async function ReviewQueue({ searchParams }: PageProps<"/">) {
         />
       ) : (
         <>
-          <div className="overflow-x-auto rounded-md border">
+          <ul className="flex flex-col gap-2 sm:hidden">
+            {flags.map((flag) => (
+              <li key={flag.id}>
+                <Link
+                  href={`/flags/${flag.id}`}
+                  className="hover:bg-muted/40 flex flex-col gap-1 rounded-md border p-3 text-sm"
+                >
+                  <span className="flex items-center justify-between gap-2">
+                    <span className="flex items-center gap-2 font-medium">
+                      <SeverityBadge severity={flag.severity} />
+                      {RULES_BY_ID.get(flag.ruleId)?.name ?? flag.ruleId}
+                    </span>
+                    <span className="tabular-nums">{formatUsd(flag.transaction.amountUsd)}</span>
+                  </span>
+                  <span className="text-muted-foreground font-mono text-xs">
+                    {maskAccount(flag.transaction.fromAccount)} →{" "}
+                    {maskAccount(flag.transaction.toAccount)}
+                  </span>
+                  <span className="text-muted-foreground text-xs">
+                    {formatTime(flag.transaction.timestamp)} ·{" "}
+                    {flag.decisions[0]
+                      ? flag.decisions[0].outcome === "APPROVED"
+                        ? "Approved"
+                        : "Dismissed"
+                      : "Open"}
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+          <div className="hidden overflow-x-auto rounded-md border sm:block">
             <table className="w-full text-left text-sm">
               <thead className="bg-muted/50 text-muted-foreground">
                 <tr>

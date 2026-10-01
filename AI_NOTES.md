@@ -65,3 +65,11 @@ A running log of what I asked AI tools for and what I had to fix. See PLAN.md, "
   - `vercel.json` schedules `/api/cron/cleanup` daily; Vercel sends `Authorization: Bearer $CRON_SECRET`, which the route checks in constant time.
   - The migrate workflow skips itself (with a notice) until the `DATABASE_URL` and `DIRECT_URL` secrets exist, so merges to `main` stay green before Neon is set up.
   - Not verified: an actual Vercel deploy, Neon, or the cron firing. They need the owner's accounts.
+
+## Phase 7 · polish
+
+- **Asked:** empty, loading and error states; keyboard shortcuts; an undo toast; the README write-up.
+- **Notes:**
+  - The first queue screenshots caught only the loading skeleton, because they were taken before the page finished streaming. That confirmed the loading state works; the screenshots were retaken after waiting for the heading.
+  - The e2e test's check for the old "Here is the next open flag" banner was updated for the new toast, and a second test covers keyboard `A` plus Undo.
+  - The README still needs a GIF; `docs/` has two real screenshots in the meantime.

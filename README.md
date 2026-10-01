@@ -6,12 +6,47 @@ approves or dismisses it. Every decision goes into an audit log.
 
 > Portfolio project, not production compliance software. All data is synthetic.
 
-**Status:** Phase 2 (auth and upload) of [PLAN.md](PLAN.md).
+**Live demo:** not deployed yet (see [Deploy](#deploy-vercel--neon)). **Status:** all seven
+phases of [PLAN.md](PLAN.md) are built; deployment needs the Vercel and Neon accounts.
+
+![Review queue](docs/queue.png)
+
+## Why it exists
+
+At American Express I maintained pipelines that fed the AML transaction monitoring team and
+helped triage data issues with them. That showed me detection is only half the job: people
+still have to review each flag, understand why it fired, and record what they decided.
+Flagline builds that second half.
+
+## How it works
+
+```
+                 +------------------- Next.js app (TypeScript) on Vercel -------------------+
+ Browser  -----> |  React pages (UI)                                                        |
+ (guest, admin)  |        |                                                                 |
+                 |  Server actions + route handlers (Node.js)                               |
+                 |        |                                                                 |
+                 |  Guest session or admin role check, Zod validation  --Prisma-->  PostgreSQL (Neon)
+                 |        |                         |                               uploads, flags, audit
+                 |  Rules engine              LLM client  ----------------------->  LLM API
+                 |  (pure functions)          (masking + fallback)                  (open-weight model)
+                 +--------------------------------------------------------------------------+
+```
+
+1. The admin uploads a CSV (or `npm run seed` loads `data/demo.csv`). Each row is validated,
+   converted to USD with fixed rates, and saved; the rules run in the same transaction.
+2. Any visitor opens the review queue with no login: a guest-session cookie scopes their
+   decisions to them.
+3. A flag's page shows why it fired (an LLM sentence or a template), the evidence and related
+   transactions. The visitor approves or dismisses it (with a note), and the audit log records
+   it.
+
+![Flag detail](docs/flag.png)
 
 ## Stack
 
-Next.js (App Router) · React · TypeScript · Tailwind + shadcn/ui · PostgreSQL · Prisma · Zod ·
-Docker · GitHub Actions · Vercel + Neon.
+Next.js 16 (App Router) · React 19 · TypeScript · Tailwind + shadcn/ui · PostgreSQL · Prisma ·
+Zod · Auth.js · Jest · Playwright · Docker · GitHub Actions · Vercel + Neon.
 
 ## Run locally
 
@@ -139,6 +174,10 @@ per-visitor decisions keep the public demo usable by everyone at once. Dismissin
 note. Every decision goes into an append-only audit log, where visitors see only their own
 entries.
 
+On a flag, `A` approves, `D` dismisses (it focuses the note first if it is empty), `J` skips
+to the next open flag and `K` goes back. After each decision the next open flag loads, with
+**Undo** for five seconds.
+
 ## Security
 
 Each protection, where it lives, and what tests it.
@@ -195,6 +234,25 @@ IBM AML dataset with `scripts/sample_data.py`.
 
 Data credit: Altman et al., "Realistic Synthetic Financial Transactions for Anti-Money
 Laundering Models", NeurIPS 2023.
+
+## How AI tools were used
+
+Each phase was specified in [PLAN.md](PLAN.md) and built with Claude Code, then reviewed.
+[AI_NOTES.md](AI_NOTES.md) logs what was asked for in each phase and what had to be fixed:
+for example a money column that would have rounded Bitcoin amounts to zero, a fan-out rule
+at 3% precision that needed tuning against the labels, and test checks that passed for the
+wrong reason until they were rewritten.
+
+## What I would do next
+
+- Deploy, record a 60-second walkthrough, and run the LLM path against a real open-weight
+  model (so far it is tested against a mock endpoint).
+- Move rules into SQL or a background job; they run in memory per upload, which is fine at
+  20,000 rows but not at 100x.
+- Group flags for one account into a case, so a reviewer sees a whole fan-out at once.
+- Use reviewer decisions as labels to tune thresholds, then consider a model.
+- A Postgres role without UPDATE/DELETE on the audit log, so the database enforces what the
+  code already does.
 
 ## License
 
