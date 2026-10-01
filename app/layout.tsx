@@ -27,6 +27,9 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
             <Link href="/" className="text-muted-foreground hover:text-foreground">
               Review queue
             </Link>
+            <Link href="/audit" className="text-muted-foreground hover:text-foreground">
+              Audit log
+            </Link>
             {admin && (
               <Link href="/uploads" className="text-muted-foreground hover:text-foreground">
                 Uploads

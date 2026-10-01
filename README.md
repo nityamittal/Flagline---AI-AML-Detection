@@ -30,6 +30,8 @@ npm run dev                 # http://localhost:3000
 
 Checks: `npm run check` (lint, type check, Jest), plus `npm run format:check` and `npm run build`.
 
+`npm run score` prints precision and recall per rule and per typology (see below).
+
 ### Admin sign-in (optional)
 
 Visitors never sign in: each browser gets a guest session cookie on its first visit. Only the
@@ -46,6 +48,66 @@ still runs as a guest-only demo: the "Admin sign-in" link is hidden and `/upload
 Admin users are matched on GitHub's numeric account id, never on the username, so a renamed
 or re-registered username can't take over an existing admin row. The upload page's sample file
 is served by the app at `/sample.csv`.
+
+## Rules and how well they work
+
+Five rules flag transactions, all comparing USD amounts. Thresholds live in
+[lib/rules/config.ts](lib/rules/config.ts).
+
+| Rule         | Fires when                                                                                                                        | Severity |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| Fan-out      | One account pays 5+ distinct accounts within 14 days, with at least 80% of its payments in that window going to distinct accounts | High     |
+| Fan-in       | One account receives from 5+ distinct accounts within 14 days                                                                     | High     |
+| Pass-through | An account receives money and sends a similar amount (within 10%) onward within 72 hours                                          | Medium   |
+| Large amount | USD amount above the upload's 99th percentile                                                                                     | Medium   |
+| Duplicate    | Same payer, payee and amount within 60 minutes                                                                                    | Low      |
+
+Self-transfers (an account paying itself, "Reinvestment" in the IBM data) are ignored by every
+rule.
+
+Results on `data/demo.csv`, from `npm run score`. This is a **sample** chosen to contain 40
+laundering attempts, so 2.6% of it is laundering, far more than in the full dataset; precision
+on real traffic would be lower.
+
+| Rule         | Flagged | Laundering | Precision | Recall |
+| ------------ | ------- | ---------- | --------- | ------ |
+| Fan-out      | 141     | 72         | 51.1%     | 13.8%  |
+| Fan-in       | 1286    | 229        | 17.8%     | 43.9%  |
+| Pass-through | 674     | 151        | 22.4%     | 28.9%  |
+| Large amount | 179     | 6          | 3.4%      | 1.1%   |
+| Duplicate    | 7       | 0          | 0.0%      | 0.0%   |
+| **Any rule** | 2195    | 379        | 17.3%     | 72.6%  |
+
+| Typology       | Laundering txns | Recall (any rule) |
+| -------------- | --------------- | ----------------- |
+| FAN-IN         | 62              | 95.2%             |
+| SCATTER-GATHER | 104             | 89.4%             |
+| FAN-OUT        | 32              | 78.1%             |
+| GATHER-SCATTER | 110             | 77.3%             |
+| RANDOM         | 35              | 74.3%             |
+| CYCLE          | 65              | 69.2%             |
+| STACK          | 58              | 53.4%             |
+| BIPARTITE      | 47              | 29.8%             |
+
+**Tuning.** The first version of fan-out flagged 3,295 transactions at 3% precision, mostly
+from hub accounts paying the same payees again and again. Requiring 80% of a window's payments
+to go to distinct accounts raised fan-out precision to 51% (recall 20% → 14%) and overall
+precision from 7.6% to 17.3% at nearly the same recall. The same condition cut fan-in's recall
+on FAN-IN attempts from 92% to 10%, since senders repeat there, so fan-in does not use it.
+
+**Limits.** Precision is low by design: rules are cheap to run and easy to explain, and every
+flag goes to a human reviewer. Single-account rules see little of BIPARTITE patterns. The
+fan-out rule catches only 22% of FAN-OUT rows because most of those rows are downstream hops
+where each sender makes one or two payments. Large amount and duplicate add little on this
+data. Amounts are converted with fixed, approximate FX rates.
+
+## Reviewing
+
+Every visitor gets their own queue: a flag is open until _they_ approve or dismiss it, and one
+visitor's decisions never change another's. A real bank would keep one shared status per flag;
+per-visitor decisions keep the public demo usable by everyone at once. Dismissing requires a
+note. Every decision goes into an append-only audit log, where visitors see only their own
+entries.
 
 ## Data
 

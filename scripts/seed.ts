@@ -3,6 +3,7 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { db } from "@/lib/db";
+import { generateFlags } from "@/lib/rules/persist";
 import { importRows } from "@/lib/uploads/import";
 import { validateCsv } from "@/lib/uploads/validate";
 
@@ -24,8 +25,12 @@ async function main() {
     where: { uploadedById: admin.id, fileName: "demo.csv", status: "DONE" },
   });
   if (existing && !force) {
+    // Brings an upload imported before a rule existed up to date; existing flags are kept.
+    const { flagged, high } = await db.$transaction((tx) => generateFlags(tx, existing.id), {
+      timeout: 120_000,
+    });
     console.log(
-      `Already seeded (upload ${existing.id}, ${existing.rowCount} rows). Use --force to import again.`,
+      `Already seeded (upload ${existing.id}, ${existing.rowCount} rows, ${flagged} flagged, ${high} high). Use --force to import again.`,
     );
     return;
   }
@@ -38,9 +43,9 @@ async function main() {
   }
 
   const started = Date.now();
-  const { uploadId } = await importRows(admin, "demo.csv", rows);
+  const { uploadId, flagged, high } = await importRows(admin, "demo.csv", rows);
   console.log(
-    `Imported ${rowCount} rows as upload ${uploadId} in ${((Date.now() - started) / 1000).toFixed(1)}s.`,
+    `Imported ${rowCount} rows as upload ${uploadId} in ${((Date.now() - started) / 1000).toFixed(1)}s: ${flagged} flagged, ${high} high.`,
   );
 }
 
