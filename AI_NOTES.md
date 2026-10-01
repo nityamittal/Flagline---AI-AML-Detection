@@ -57,3 +57,11 @@ A running log of what I asked AI tools for and what I had to fix. See PLAN.md, "
   - To check that the isolation tests really guard something, I made `decisionOwner` match every decision and re-ran them: two failed. The change was reverted.
   - Playwright's `getByRole("alert")` also matched Next.js's hidden route announcer; the test now matches on the alert's text.
   - The CI steps were replayed locally on fresh, empty databases (create, migrate, Jest with integration tests, build, seed, Playwright) and passed; the GitHub run itself is still to confirm.
+
+## Phase 6 · deploy (code side)
+
+- **Asked:** everything for Vercel + Neon that can live in the repo; the accounts, secrets and the first deploy are manual.
+- **Notes:**
+  - `vercel.json` schedules `/api/cron/cleanup` daily; Vercel sends `Authorization: Bearer $CRON_SECRET`, which the route checks in constant time.
+  - The migrate workflow skips itself (with a notice) until the `DATABASE_URL` and `DIRECT_URL` secrets exist, so merges to `main` stay green before Neon is set up.
+  - Not verified: an actual Vercel deploy, Neon, or the cron firing. They need the owner's accounts.

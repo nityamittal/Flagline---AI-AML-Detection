@@ -1,0 +1,44 @@
+name: Migrate production database
+
+# Applies Prisma migrations to Neon on every merge to main. Vercel deploys main on its own.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: migrate-production
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    env:
+      # Repository secrets (Settings → Secrets and variables → Actions). Migrations use the
+      # direct (non-pooled) Neon connection.
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DIRECT_URL: ${{ secrets.DIRECT_URL }}
+    steps:
+      - name: Check secrets
+        id: secrets
+        run: |
+          if [ -z "$DIRECT_URL" ] || [ -z "$DATABASE_URL" ]; then
+            echo "::notice::DATABASE_URL / DIRECT_URL secrets are not set yet; skipping migrations."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v7
+        if: steps.secrets.outputs.ready == 'true'
+      - uses: actions/setup-node@v7
+        if: steps.secrets.outputs.ready == 'true'
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+        if: steps.secrets.outputs.ready == 'true'
+      - run: npx prisma migrate deploy
+        if: steps.secrets.outputs.ready == 'true'

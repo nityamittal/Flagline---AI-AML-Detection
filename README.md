@@ -160,6 +160,34 @@ Each protection, where it lives, and what tests it.
 **Tradeoff:** an open demo lets anyone create guest data. Rate limits, the 7-day cleanup and
 per-session scoping keep that cheap and contained, and nothing a guest does changes shared data.
 
+## Deploy (Vercel + Neon)
+
+1. **Neon:** create a free project. Copy the **pooled** connection string (host contains
+   `-pooler`) and the **direct** one.
+2. **GitHub:** add repository secrets `DATABASE_URL` (pooled) and `DIRECT_URL` (direct). The
+   [migrate workflow](.github/workflows/migrate.yml) runs `prisma migrate deploy` on every merge
+   to `main`, and skips itself until both are set. Run it once by hand (Actions → Migrate
+   production database → Run workflow) to create the tables.
+3. **Vercel:** import the repository and set these environment variables: `DATABASE_URL`,
+   `DIRECT_URL`, `AUTH_SECRET`, `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET` (a second GitHub OAuth
+   app with callback `https://<your-domain>/api/auth/callback/github`),
+   `ADMIN_GITHUB_USERNAMES`, `CRON_SECRET` (any long random string), and the `LLM_*` variables
+   (or `LLM_PROVIDER=none`). Vercel deploys `main` to production and every pull request to a
+   preview URL.
+4. **Seed and pre-generate explanations** from your machine, against the production database:
+
+   ```bash
+   DATABASE_URL="<neon pooled url>" npm run seed
+   DATABASE_URL="<neon pooled url>" LLM_PROVIDER=... LLM_BASE_URL=... LLM_MODEL=... LLM_API_KEY=...      npm run explain:all -- --delay 500
+   ```
+
+5. **Check:** `https://<your-domain>/api/health` should return `{"status":"ok","db":"ok"}`.
+   The cleanup job is scheduled daily at 04:00 UTC by [vercel.json](vercel.json); Vercel sends
+   `CRON_SECRET` with each call.
+
+Migrations and the Vercel deploy run side by side on a merge, so a deploy can briefly run
+ahead of a migration. Keep migrations additive (new tables and columns first, removals later).
+
 ## Data
 
 See [data/README.md](data/README.md) for how `demo.csv` and `labels.csv` are sampled from the
